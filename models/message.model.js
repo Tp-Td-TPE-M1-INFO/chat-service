@@ -4,7 +4,7 @@ const messageModel = mongoose.Schema(
     {
         sender:{
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User"
+            require: true
         },
         content:{
             type: String, 
@@ -14,6 +14,10 @@ const messageModel = mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Chat"
         },
+        date:{
+            type: String,
+            default: Date.now(),
+        }
     },
     {
         timestamps: true,

@@ -1,26 +1,26 @@
 const asyncHandler = require("express-async-handler");
 const Message = require("../models/message.model");
-const User = require("../models/user.model");
 const Chat = require("../models/chat.model");
 
 //@description     Get all Messages
 //@route           GET /api/Message/:chatId
-//@access          Protected
+
 const allMessages = asyncHandler(async (req, res) => {
   try {
-    const messages = await Message.find({ chat: req.params.chatId })
-      .populate("sender", "name pic username")
-      .populate("chat");
+    let messages = await Message.find({ chat: req.params.chatId }).populate("chat");
+     messages = await Message.populate(messages, {
+      path: "chat.latestMessage"
+    });
     res.status(200).json(messages);
+
   } catch (error) {
-    res.status(400);
-    throw new Error(error.message);
+    res.status(400).json(error)
   }
 });
 
 //@description     Create New Message
-//@route           POST /api/Message/
-//@access          Protected
+//@route           POST /api/Message/send/:id
+
 const sendMessage = asyncHandler(async (req, res) => {
   const { content, chatId } = req.body;
 
@@ -36,21 +36,20 @@ const sendMessage = asyncHandler(async (req, res) => {
   };
 
   try {
-    var message = await Message.create(newMessage);
+    let message = await Message.create(newMessage);
 
-    message = await message.populate("sender", "name pic")
     message = await message.populate("chat")
-    message = await User.populate(message, {
-      path: "chat.users",
-      select: "name pic username",
-    });
 
-    await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message });
+    await Chat.findByIdAndUpdate(
+      req.body.chatId, 
+      { latestMessage: message },
+      {new: true, upsert:true, setDefaultsOnInsert: true}
+    );
 
+    message = await message.chat.populate("latestMessage");
     res.status(200).json(message);
   } catch (error) {
-    res.status(400);
-    throw new Error(error.message);
+    res.status(400).json(error);
   }
 });
 

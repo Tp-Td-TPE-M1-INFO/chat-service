@@ -1,10 +1,9 @@
 const asyncHandler = require("express-async-handler");
 const Chat = require("../models/chat.model");
-const User = require("../models/user.model");
 
 //@description     Create or fetch One to One Chat
-//@route           POST /api/chat/
-//@access          Protected
+//@route           POST /api/chat/:id
+
 const accessChat = asyncHandler(async (req, res) => {
   const { userId } = req.body;
 
@@ -20,13 +19,7 @@ const accessChat = asyncHandler(async (req, res) => {
       { users: { $elemMatch: { $eq: userId } } },
     ],
   })
-    .populate("users", "-password")
     .populate("latestMessage");
-
-  isChat = await User.populate(isChat, {
-    path: "latestMessage.sender",
-    select: "name pic username",
-  });
 
   if (isChat.length > 0) {
     res.send(isChat[0]);
@@ -39,11 +32,7 @@ const accessChat = asyncHandler(async (req, res) => {
 
     try {
       const createdChat = await Chat.create(chatData);
-      const FullChat = await Chat.findOne({ _id: createdChat._id }).populate(
-        "users",
-        "-password"
-      );
-      res.status(200).json(FullChat);
+      res.status(200).json(createdChat);
     } catch (error) {
       res.status(400);
       throw new Error(error.message);
@@ -57,16 +46,10 @@ const accessChat = asyncHandler(async (req, res) => {
 const fetchChats = asyncHandler(async (req, res) => {
   try {
     Chat.find({ users: { $elemMatch: { $eq: req.params.id } } })
-      .populate("users", "-password")
-      .populate("groupAdmin", "-password")
       .populate("latestMessage")
       .sort({ updatedAt: -1 })
       .then(async (results) => {
-        results = await User.populate(results, {
-          path: "latestMessage.sender",
-          select: "name pic username",
-        });
-        res.status(200).send(results);
+        res.status(200).json(results);
       });
   } catch (error) {
     res.status(400);
@@ -82,29 +65,22 @@ const createGroupChat = asyncHandler(async (req, res) => {
     return res.status(400).send({ message: "Please Fill all the feilds" });
   }
 
-  var users = req.body.users;
+  let users = req.body.users;
+  const admin = req.params.id
 
   if (users.length < 2) {
-    return res
-      .status(400)
-      .send("More than 2 users are required to form a group chat");
+    return res.status(400).send("More than 2 users are required to form a group chat");
   }
-  prop = await User.findOne({_id: req.params.id});
-  users.push(prop);
+  users.push(admin);
 
   try {
     const groupChat = await Chat.create({
       chatName: req.body.name,
       users: users,
       isGroupChat: true,
-      groupAdmin: prop,
+      groupAdmin:admin ,
     });
-
-    const fullGroupChat = await Chat.findOne({ _id: groupChat._id })
-      .populate("users", "-password")
-      .populate("groupAdmin", "-password");
-
-    res.status(200).json(fullGroupChat);
+    res.status(200).json(groupChat);
   } catch (error) {
     res.status(400);
     throw new Error(error.message);
@@ -126,14 +102,12 @@ const renameGroup = asyncHandler(async (req, res) => {
       new: true,
     }
   )
-    .populate("users", "-password")
-    .populate("groupAdmin", "-password");
-
+   
   if (!updatedChat) {
     res.status(404);
     throw new Error("Chat Not Found");
   } else {
-    res.json(updatedChat);
+    res.status(200).json(updatedChat);
   }
 });
 
@@ -154,14 +128,12 @@ const removeFromGroup = asyncHandler(async (req, res) => {
       new: true,
     }
   )
-    .populate("users", "-password")
-    .populate("groupAdmin", "-password");
 
   if (!removed) {
     res.status(404);
     throw new Error("Chat Not Found");
   } else {
-    res.json(removed);
+    res.status(200).json(removed);
   }
 });
 
@@ -182,14 +154,11 @@ const addToGroup = asyncHandler(async (req, res) => {
       new: true,
     }
   )
-    .populate("users", "-password")
-    .populate("groupAdmin", "-password");
-
   if (!added) {
     res.status(404);
     throw new Error("Chat Not Found");
   } else {
-    res.json(added);
+    res.status(200).json(added);
   }
 });
 
